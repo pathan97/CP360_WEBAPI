@@ -6,6 +6,7 @@ from django.forms.models import model_to_dict
 from .models import *
 from .decorators import token_required
 from django.utils.decorators import method_decorator
+from .tasks import generate_dummy_category_product_task
 from .forms import *
 import json
 import pdb
@@ -278,3 +279,22 @@ class ProductView(View):
                 "error":str(e)
             }
             return json_response(data, status=500)
+
+class generate_dummy_category_product(View):
+    @method_decorator(token_required)
+    def post(self,request):
+        req_data = json.loads(request.body)
+        cat_count = req_data.get('category_count')
+        prod_count = req_data.get('product_count')
+        if cat_count and prod_count is not None:
+            result = generate_dummy_category_product_task.delay(cat_count,prod_count)
+            data = {
+                "msg":"Dummy data generation task initiated in the background."
+                }
+            return json_response(data, status=202)
+        else:
+            data = {
+                "error":"Invalid or missing details.",
+            }
+            return json_response(data, status=401)
+

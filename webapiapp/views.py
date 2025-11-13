@@ -43,6 +43,13 @@ class LoginView(View):
             password=data.get('password')
             user=User.objects.get(username=username,password=password)
             if user is not None:
+                old_token = Token.objects.filter(user=user)
+                if old_token.exists():
+                    data = {
+                    "msg":"User already logged in",
+                    "token":old_token.key
+                    }
+                    return json_response(data)
                 token = Token.objects.create(user=user)
                 request.user = token.user
                 data = {
@@ -169,6 +176,103 @@ class CategoryView(View):
                 }
                 return json_response(data, status=401)
 
+        except Exception as e:
+            data = {
+                "error":str(e)
+            }
+            return json_response(data, status=500)
+
+class ProductView(View):
+    @method_decorator(token_required)
+    def get(self, request):
+        try:
+            product = Product.objects.all().values()
+            pro_list = list(product)
+            data = {
+                "msg":"Successfull.",
+                "Product":pro_list
+            }
+            return json_response(data)
+        except Exception as e:
+            data = {
+                "error":str(e)
+            }
+            return json_response(data, status=500)
+    
+    @method_decorator(token_required)
+    def post(self, request):
+        try:
+            req_data = json.loads(request.body)
+            form = ProductForm(req_data)
+            if form.is_valid():
+                product = form.save()
+                new_product = model_to_dict(product)
+                data = {
+                    "msg":"New product created.",
+                    "Product":new_product
+                }
+                return json_response(data, status=201)
+            else:
+                data = {
+                    "error":"Invalid or missing details.",
+                }
+                return json_response(data, status=401)
+            
+        except Exception as e:
+            data = {
+                "error":str(e)
+            }
+            return json_response(data, status=500)
+
+    @method_decorator(token_required)
+    def delete(self, request):
+        product = None
+        try:
+            req_data = json.loads(request.body)
+            product = Product.objects.get(id=req_data.get('id'))
+        except Product.DoesNotExist:
+            data = {
+                "error":"Product does not exist!"
+                }
+            return json_response(data,status=404)
+        try:
+            product.delete()
+            data = {
+                "msg":"Product deleted."
+            }
+            return json_response(data)
+        except Exception as e:
+            data = {
+                "error":str(e)
+            }
+            return json_response(data, status=500)
+
+    @method_decorator(token_required)
+    def put(self, request):
+        product = None
+        try:
+            req_data = json.loads(request.body)
+            try:
+                product = Product.objects.get(id=req_data.get('id'))
+            except Product.DoesNotExist:
+                data = {
+                    "error":"Product does not exist!"
+                    }
+                return json_response(data,status=404)
+            form = ProductForm(req_data, instance=product)
+            if form.is_valid():
+                update_product = form.save()
+                updated_product = model_to_dict(update_product)
+                data = {
+                    "msg":"Product updated.",
+                    "Category":updated_product
+                }
+                return json_response(data)
+            else:
+                data = {
+                    "error":"Invalid or missing details.",
+                }
+                return json_response(data, status=401)
         except Exception as e:
             data = {
                 "error":str(e)
